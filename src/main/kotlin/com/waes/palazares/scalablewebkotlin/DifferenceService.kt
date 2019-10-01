@@ -3,8 +3,10 @@ package com.waes.palazares.scalablewebkotlin
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceRecord
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceResult
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceType
+import com.waes.palazares.scalablewebkotlin.exceptions.InavlidIdException
+import com.waes.palazares.scalablewebkotlin.exceptions.InvalidBase64Exception
+import com.waes.palazares.scalablewebkotlin.exceptions.InvalidRecordContentException
 import reactor.core.publisher.Mono
-import java.lang.System.getLogger
 import java.util.*
 
 /**
@@ -35,17 +37,12 @@ interface DifferenceService {
      * @param id document id
      * @return difference record with a result
      */
-    fun getDifference(id: String): Mono<DifferenceRecord>
+    fun getDifference(id: String?): Mono<DifferenceRecord>
 }
 
-class DifferenceServiceImpl : DifferenceService {
-    companion object {
-        @Suppress("JAVA_CLASS_ON_COMPANION")
-        @JvmStatic
-        private val log = getLogger(javaClass.enclosingClass)
-    }
+class DifferenceServiceImpl(private val repository: DifferenceRepository) : DifferenceService, Logging {
 
-    private val repository: DifferenceRepository? = null
+    private val log: System.Logger = getLogger()
 
     override fun putRight(id: String, doc: String): Mono<DifferenceRecord> {
         return putRecord(id, doc, false)
@@ -74,8 +71,8 @@ class DifferenceServiceImpl : DifferenceService {
 
         return yesResultRecord
                 .switchIfEmpty(record
-                        .flatMap { rec -> compare(rec).map<R> { x -> rec.toBuilder().result(x).build() } }
-                        .flatMap(???({ repository!!.save() })))
+                        .flatMap { rec -> compare(rec).map { x -> rec.toBuilder().result(x).build() } }
+                        .flatMap { repository.save(it) })
     }
 
     /**
@@ -102,7 +99,7 @@ class DifferenceServiceImpl : DifferenceService {
         val decodedDoc = decode(doc)
         val record = repository!!.findById(id).defaultIfEmpty(DifferenceRecord.builder().id(id).build())
 
-        val sameDocRecord = decodedDoc.flatMap<Any> { d -> record.filter({ rec -> if (isLeft) Arrays.equals(rec.getLeft(), d) else Arrays.equals(rec.getRight(), d) }) }
+        val sameDocRecord = decodedDoc.flatMap<Any> { d -> record.filter { rec -> if (isLeft) Arrays.equals(rec.left, d) else Arrays.equals(rec.getRight(), d) } }
 
         return sameDocRecord.switchIfEmpty(
                 decodedDoc.flatMap<Any> { d ->
@@ -125,7 +122,7 @@ class DifferenceServiceImpl : DifferenceService {
 
     private fun compare(record: DifferenceRecord): Mono<DifferenceResult> {
         if (record.left == null || record.right == null || record.left.isEmpty() || record.right.isEmpty()) {
-            log.debug("Record with id: {} doesn't have full date for comparison", record.getId())
+            log.debug("Record with id: {} doesn't have full date for comparison", record.id)
             return Mono.error(InvalidRecordContentException())
         }
 
