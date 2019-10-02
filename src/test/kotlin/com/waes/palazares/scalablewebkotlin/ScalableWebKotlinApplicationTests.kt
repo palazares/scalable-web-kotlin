@@ -12,5 +12,4 @@ class ScalableWebKotlinApplicationTests {
     @Test
     fun contextLoads() {
     }
-
 }

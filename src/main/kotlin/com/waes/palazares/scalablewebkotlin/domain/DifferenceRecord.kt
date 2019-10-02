@@ -3,7 +3,7 @@ package com.waes.palazares.scalablewebkotlin.domain
 import org.springframework.data.mongodb.core.mapping.Document
 
 @Document(collection = "difference")
-data class DifferenceRecord(val id: String, val left: ByteArray?, val right: ByteArray?, val result: DifferenceResult?) {
+data class DifferenceRecord(val id: String, val left: ByteArray? = null, val right: ByteArray? = null, val result: DifferenceResult? = null) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

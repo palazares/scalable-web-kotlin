@@ -1,19 +1,17 @@
 package com.waes.palazares.scalablewebkotlin
 
-import java.util.*
-
 /**
  * Method makes size checks and throws UnsupportedOperationException if one of the arrays is empty or they have different sizes.
  * Arguments checked for null
  *
- * @param left first byte array
- * @param right second byte array
+ * @param [left] first byte array
+ * @param [right] second byte array
  * @return message containing list of differences having starting index and length for each difference subset - [(index,length),..]
  */
 fun getOffsetsMessage(left: ByteArray, right: ByteArray): String {
-    if (left.isEmpty() || right.isEmpty() || left.size != right.size) {
-        throw UnsupportedOperationException("Can't compare offsets with zero or different length")
-    }
+    require(left.isNotEmpty())
+    require(right.isNotEmpty())
+    require(left.size == right.size)
 
     if (left.contentEquals(right)) {
         return "Arrays are equals"
@@ -42,12 +40,10 @@ fun getOffsetsMessage(left: ByteArray, right: ByteArray): String {
         offsets.add(Offset(startIndex, curLength))
     }
 
-    return "Offsets [(index,length),..] : [" + offsets.joinToString(",") { it.toString() } + "]"
+    val offsetsString = offsets.joinToString(",") { it.toString() }
+    return "Offsets [(index,length),..] : [$offsetsString]"
 }
 
 private data class Offset(val startIndex: Int = 0, val length: Int = 0) {
-    override fun toString(): String {
-        return "(" + startIndex +
-                ", " + length + ')'.toString()
-    }
+    override fun toString(): String = "($startIndex, $length)"
 }

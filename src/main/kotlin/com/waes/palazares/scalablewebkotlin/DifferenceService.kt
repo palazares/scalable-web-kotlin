@@ -6,6 +6,8 @@ import com.waes.palazares.scalablewebkotlin.domain.DifferenceType
 import com.waes.palazares.scalablewebkotlin.exceptions.InavlidIdException
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidBase64Exception
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidRecordContentException
+import org.slf4j.Logger
+import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.util.*
 
@@ -25,8 +27,8 @@ interface DifferenceService {
     /**
      * Puts document as a left side of the difference into the repository. Document contents are decoded
      *
-     * @param id document id
-     * @param doc base64 encoded document
+     * @param [id] document id
+     * @param [doc] base64 encoded document
      * @return persisted difference record
      */
     fun putLeft(id: String, doc: String): Mono<DifferenceRecord>
@@ -34,15 +36,15 @@ interface DifferenceService {
     /**
      * Gets the difference between left and right documents
      *
-     * @param id document id
+     * @param [id] document id
      * @return difference record with a result
      */
-    fun getDifference(id: String?): Mono<DifferenceRecord>
+    fun getDifference(id: String): Mono<DifferenceRecord>
 }
 
+@Service
 class DifferenceServiceImpl(private val repository: DifferenceRepository) : DifferenceService, Logging {
-
-    private val log: System.Logger = getLogger()
+    private val log: Logger = logger()
 
     override fun putRight(id: String, doc: String): Mono<DifferenceRecord> {
         return putRecord(id, doc, false)
@@ -58,21 +60,20 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
      * @param id document id
      * @return difference result
      */
-    override fun getDifference(id: String?): Mono<DifferenceRecord> {
-        log.debug("Get difference request with id: {}", id)
+    override fun getDifference(id: String): Mono<DifferenceRecord> {
+        log.debug("Get difference request with id: $id")
 
-        if (id == null || id.trim { it <= ' ' }.isEmpty()) {
+        if (id.trim { it <= ' ' }.isEmpty()) {
             log.debug("Get difference request has empty id")
             return Mono.error(InavlidIdException())
         }
 
-        val record = repository!!.findById(id).switchIfEmpty(Mono.error(InvalidRecordContentException()))
+        val record = repository.findById(id).switchIfEmpty(Mono.error(InvalidRecordContentException()))
         val yesResultRecord = record.filter { it.result != null }
 
-        return yesResultRecord
-                .switchIfEmpty(record
-                        .flatMap { rec -> compare(rec).map { x -> rec.toBuilder().result(x).build() } }
-                        .flatMap { repository.save(it) })
+        return yesResultRecord.switchIfEmpty(record
+                .flatMap { rec -> compare(rec).map { DifferenceRecord(rec.id, rec.left, rec.right, it) } }
+                .flatMap { repository.save(it) })
     }
 
     /**
@@ -84,7 +85,7 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
      * @return persisted difference record
      */
     private fun putRecord(id: String?, doc: String?, isLeft: Boolean): Mono<DifferenceRecord> {
-        log.debug("Put record request with id: {}", id)
+        log.debug("Put record request with id: $id")
 
         if (id == null || id.trim { it <= ' ' }.isEmpty()) {
             log.debug("Record request has empty id")
@@ -92,37 +93,33 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
         }
 
         if (doc == null || doc.trim { it <= ' ' }.isEmpty()) {
-            log.debug("Record request with id: {} has empty content", id)
+            log.debug("Record request with id: $id has empty content")
             return Mono.error(InvalidBase64Exception())
         }
 
         val decodedDoc = decode(doc)
-        val record = repository!!.findById(id).defaultIfEmpty(DifferenceRecord.builder().id(id).build())
+        val record = repository.findById(id).defaultIfEmpty(DifferenceRecord(id))
 
-        val sameDocRecord = decodedDoc.flatMap<Any> { d -> record.filter { rec -> if (isLeft) Arrays.equals(rec.left, d) else Arrays.equals(rec.getRight(), d) } }
+        val sameDocRecord = decodedDoc.flatMap { content -> record.filter { rec -> Arrays.equals(if (isLeft) rec.left else rec.right, content) } }
 
-        return sameDocRecord.switchIfEmpty(
-                decodedDoc.flatMap<Any> { d ->
-                    record
-                            .map({ rec -> if (isLeft) rec.toBuilder().left(d).build() else rec.toBuilder().right(d).build() })
+        return sameDocRecord.switchIfEmpty(decodedDoc
+                .flatMap { content ->
+                    record.map { rec -> if (isLeft) DifferenceRecord(rec.id, content, rec.right, null) else DifferenceRecord(rec.id, rec.left, content, null) }
                 }
-                        .map<Any> { rec -> rec.toBuilder().result(null).build() }
-                        .flatMap(Function<Any, Mono<*>> { repository!!.save() }))
+                .flatMap { repository.save(it) })
     }
 
-    private fun decode(doc: String): Mono<ByteArray> {
-        return try {
-            Mono.just(Base64.getDecoder().decode(doc))
-        } catch (e: IllegalArgumentException) {
-            log.debug("Not valid base64 string: {}", doc, e)
-            Mono.error(InvalidBase64Exception())
-        }
-
-    }
+    private fun decode(doc: String): Mono<ByteArray> =
+            Mono.just(Base64.getDecoder().decode(doc)).onErrorMap {
+                log.debug("Not valid base64 string: $doc", it)
+                InvalidBase64Exception()
+            }
 
     private fun compare(record: DifferenceRecord): Mono<DifferenceResult> {
+        val id = record.id
+
         if (record.left == null || record.right == null || record.left.isEmpty() || record.right.isEmpty()) {
-            log.debug("Record with id: {} doesn't have full date for comparison", record.id)
+            log.debug("Record with id: $id doesn't have full date for comparison")
             return Mono.error(InvalidRecordContentException())
         }
 
@@ -130,19 +127,17 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
         val right = record.right
 
         if (Arrays.equals(left, right)) {
-            log.debug("Record with id: {} has equal content", record.id)
-            return Mono.just(DifferenceResult.builder().type(DifferenceType.EQUALS).message("Records are equal. Congratulations!").build())
+            log.debug("Record with id: $id has equal content")
+            return Mono.just(DifferenceResult(DifferenceType.EQUALS, "Records are equal. Congratulations!"))
         }
 
-        if (left.size !== right.size) {
-            log.debug("Record with id: {} has different size content", record.id)
-            return Mono.just(DifferenceResult.builder().type(DifferenceType.DIFFERENT_SIZE).message("Records have different size. What a pity!").build())
+        if (left.size != right.size) {
+            log.debug("Record with id: $id has different size content")
+            return Mono.just(DifferenceResult(DifferenceType.DIFFERENT_SIZE, "Records have different size. What a pity!"))
         }
 
-        log.debug("Record with id: {} has different content", record.id)
-        return Mono.just(DifferenceResult.builder()
-                .type(DifferenceType.DIFFERENT_CONTENT)
-                .message("Records have the same size, but content is different. Differences insight: " + Offsets.getOffsetsMessage(left, right))
-                .build())
+        log.debug("Record with id: $id has different content")
+        val offsetsMessage = getOffsetsMessage(left, right)
+        return Mono.just(DifferenceResult(DifferenceType.DIFFERENT_CONTENT, "Records have the same size, but content is different. Differences insight: $offsetsMessage"))
     }
 }
