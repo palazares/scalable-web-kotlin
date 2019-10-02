@@ -57,7 +57,7 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
     /**
      * Checks that record already has a result and returns it without further processing if it already exists
      *
-     * @param id document id
+     * @param [id] document id
      * @return difference result
      */
     override fun getDifference(id: String): Mono<DifferenceRecord> {
@@ -79,9 +79,9 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
     /**
      * Nullify result only if new content is different from already existing. Otherwise old object is returned and no actual persistence performed
      *
-     * @param id document id
-     * @param doc base64 encoded document
-     * @param isLeft document side
+     * @param [id] document id
+     * @param [doc] base64 encoded document
+     * @param [isLeft] document side
      * @return persisted difference record
      */
     private fun putRecord(id: String?, doc: String?, isLeft: Boolean): Mono<DifferenceRecord> {
@@ -111,7 +111,7 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
 
     private fun decode(doc: String): Mono<ByteArray> =
             Mono.just(Base64.getDecoder().decode(doc)).onErrorMap {
-                log.debug("Not valid base64 string: $doc", it)
+                //log.debug("Not valid base64 string: $doc", it)
                 InvalidBase64Exception()
             }
 

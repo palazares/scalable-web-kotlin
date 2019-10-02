@@ -11,8 +11,8 @@ class DifferenceController(private val service: DifferenceService) {
     /**
      * Endpoint to add the left side of the document.
      *
-     * @param id id of the document
-     * @param data base64 encoded content
+     * @param [id] id of the document
+     * @param [data] base64 encoded content
      * @return Difference record persisted into storage
      */
     @PutMapping("{id}/left")
@@ -23,8 +23,8 @@ class DifferenceController(private val service: DifferenceService) {
     /**
      * Endpoint to add the right side of the document.
      *
-     * @param id id of the document
-     * @param data base64 encoded content
+     * @param [id] id of the document
+     * @param [data] base64 encoded content
      * @return Difference record persisted into storage
      */
     @PutMapping("{id}/right")
@@ -35,7 +35,7 @@ class DifferenceController(private val service: DifferenceService) {
     /**
      * Endpoint to get the differences between left and right documents
      *
-     * @param id id of the document
+     * @param [id] id of the document
      * @return Difference result object with difference type and message
      */
     @GetMapping("{id}")
