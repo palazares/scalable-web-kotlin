@@ -110,10 +110,10 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
     }
 
     private fun decode(doc: String): Mono<ByteArray> =
-            Mono.just(Base64.getDecoder().decode(doc)).onErrorMap {
-                //log.debug("Not valid base64 string: $doc", it)
-                InvalidBase64Exception()
-            }
+            Mono.just(doc)
+                    .map { Base64.getDecoder().decode(it) }
+                    .doOnError { log.debug("Not valid base64 string: $doc", it) }
+                    .onErrorMap { InvalidBase64Exception() }
 
     private fun compare(record: DifferenceRecord): Mono<DifferenceResult> {
         val id = record.id
