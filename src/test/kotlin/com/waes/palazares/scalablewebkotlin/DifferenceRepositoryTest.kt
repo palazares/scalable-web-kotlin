@@ -3,17 +3,16 @@ package com.waes.palazares.scalablewebkotlin
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceRecord
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceResult
 import com.waes.palazares.scalablewebkotlin.domain.DifferenceType
-import org.junit.Assert.*
-import org.junit.Test
-import org.junit.runner.RunWith
+import org.hibernate.validator.internal.util.Contracts.assertNotNull
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate
-import org.springframework.test.context.junit4.SpringRunner
 import java.time.Duration
 
-@RunWith(SpringRunner::class)
 @DataMongoTest
 class DifferenceRepositoryTest {
     @Autowired

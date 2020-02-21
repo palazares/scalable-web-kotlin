@@ -1,31 +1,40 @@
 package com.waes.palazares.scalablewebkotlin
 
-import junitparams.JUnitParamsRunner
-import junitparams.Parameters
-import org.junit.Assert.assertEquals
-import org.junit.Test
-import org.junit.runner.RunWith
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
-@RunWith(JUnitParamsRunner::class)
 class OffsetsTest {
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun shouldThrowUnsupportedOperationWhenRightIsEmpty() {
-        getOffsetsMessage(ByteArray(0), ByteArray(1))
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun shouldThrowUnsupportedOperationWhenLeftIsEmpty() {
-        getOffsetsMessage(ByteArray(1), ByteArray(0))
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun shouldThrowUnsupportedOperationWhenDifferentSize() {
-        getOffsetsMessage(ByteArray(1), ByteArray(2))
+        assertThrows(IllegalArgumentException::class.java) { getOffsetsMessage(ByteArray(0), ByteArray(1)) }
     }
 
     @Test
-    @Parameters(method = "parametersToTestOffsets")
+    fun shouldThrowUnsupportedOperationWhenLeftIsEmpty() {
+        assertThrows(IllegalArgumentException::class.java) { getOffsetsMessage(ByteArray(1), ByteArray(0)) }
+    }
+
+    @Test
+    fun shouldThrowUnsupportedOperationWhenDifferentSize() {
+        assertThrows(IllegalArgumentException::class.java) { getOffsetsMessage(ByteArray(1), ByteArray(2)) }
+    }
+
+    @ParameterizedTest(name = "{0}, {1} = {2}")
+    @CsvSource(
+            "equals-equals-Arrays are equals",
+            "12as34as56-12er34er56-Offsets [(index,length),..] : [(2, 2),(6, 2)]",
+            "12as34as56as-12er34er56er-Offsets [(index,length),..] : [(2, 2),(6, 2),(10, 2)]",
+            "e1-s1-Offsets [(index,length),..] : [(0, 1)]",
+            "e1e-s1s-Offsets [(index,length),..] : [(0, 1),(2, 1)]",
+            "1e-1s-Offsets [(index,length),..] : [(1, 1)]",
+            "1ee-1ss-Offsets [(index,length),..] : [(1, 2)]",
+            "123456-abcdef-Offsets [(index,length),..] : [(0, 6)]",
+            "12asas56-12erer56-Offsets [(index,length),..] : [(2, 4)]", delimiter = '-'
+    )
     fun shouldReturnResultWhenArraysAreSpecified(left: String, right: String, result: String) {
         //given
         val leftContent = left.toByteArray()
@@ -34,18 +43,5 @@ class OffsetsTest {
         val offsetsMessage = getOffsetsMessage(leftContent, rightContent)
         //then
         assertEquals(result, offsetsMessage)
-    }
-
-    private fun parametersToTestOffsets(): Array<Any> {
-        return arrayOf(
-                arrayOf<Any>("equals", "equals", "Arrays are equals"),
-                arrayOf<Any>("12as34as56", "12er34er56", "Offsets [(index,length),..] : [(2, 2),(6, 2)]"),
-                arrayOf<Any>("12as34as56as", "12er34er56er", "Offsets [(index,length),..] : [(2, 2),(6, 2),(10, 2)]"),
-                arrayOf<Any>("e1", "s1", "Offsets [(index,length),..] : [(0, 1)]"),
-                arrayOf<Any>("e1e", "s1s", "Offsets [(index,length),..] : [(0, 1),(2, 1)]"),
-                arrayOf<Any>("1e", "1s", "Offsets [(index,length),..] : [(1, 1)]"),
-                arrayOf<Any>("1ee", "1ss", "Offsets [(index,length),..] : [(1, 2)]"),
-                arrayOf<Any>("123456", "abcdef", "Offsets [(index,length),..] : [(0, 6)]"),
-                arrayOf<Any>("12asas56", "12erer56", "Offsets [(index,length),..] : [(2, 4)]"))
     }
 }

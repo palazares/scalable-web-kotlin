@@ -7,8 +7,8 @@ import com.waes.palazares.scalablewebkotlin.domain.DifferenceType
 import com.waes.palazares.scalablewebkotlin.exceptions.InavlidIdException
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidBase64Exception
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidRecordContentException
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.util.*
@@ -22,7 +22,7 @@ class DifferenceServiceImplTest {
     @Test
     fun shouldThrowInvalidIdWhenLeftIdIsEmpty() {
         StepVerifier
-                .create(diffService.putLeft("", ""))
+                .create(diffService.putLeft("", Mono.just("")))
                 .expectError(InavlidIdException::class.java)
                 .verify()
     }
@@ -30,7 +30,7 @@ class DifferenceServiceImplTest {
     @Test
     fun shouldThrowInvalidIdWhenRightIdIsEmpty() {
         StepVerifier
-                .create(diffService.putRight("", ""))
+                .create(diffService.putRight("", Mono.just("")))
                 .expectError(InavlidIdException::class.java)
                 .verify()
     }
@@ -45,8 +45,9 @@ class DifferenceServiceImplTest {
 
     @Test
     fun shouldThrowInvalidBase64WhenLeftDocIsEmpty() {
+        whenever(repository.findById(eq("testID"))).thenReturn(Mono.empty())
         StepVerifier
-                .create(diffService.putLeft("testID", ""))
+                .create(diffService.putLeft("testID", Mono.just("")))
                 .expectError(InvalidBase64Exception::class.java)
                 .verify()
     }
@@ -55,15 +56,16 @@ class DifferenceServiceImplTest {
     fun shouldThrowInvalidBase64WhenLeftDocIsInvalidBase64() {
         whenever(repository.findById(eq("testID"))).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putLeft("testID", "_- &^%"))
+                .create(diffService.putLeft("testID", Mono.just("_- &^%")))
                 .expectError(InvalidBase64Exception::class.java)
                 .verify()
     }
 
     @Test
     fun shouldThrowInvalidBase64WhenRightDocIsEmpty() {
+        whenever(repository.findById(eq("testID"))).thenReturn(Mono.empty())
         StepVerifier
-                .create(diffService.putLeft("testID", ""))
+                .create(diffService.putLeft("testID", Mono.just("")))
                 .expectError(InvalidBase64Exception::class.java)
                 .verify()
     }
@@ -72,7 +74,7 @@ class DifferenceServiceImplTest {
     fun shouldThrowInvalidBase64WhenRightDocIsInvalidBase64() {
         whenever(repository.findById(eq("testID"))).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putRight("testID", "_- &^%"))
+                .create(diffService.putRight("testID", Mono.just("_- &^%")))
                 .expectError(InvalidBase64Exception::class.java)
                 .verify()
     }
@@ -139,7 +141,7 @@ class DifferenceServiceImplTest {
     fun shouldNotFailWhenCorrectBase64() {
         //given
         val testId = "testID"
-        val leftContent = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        val leftContent = Mono.just("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
         //when
         whenever(repository.findById(eq(testId))).thenReturn(Mono.empty())
         whenever(repository.save<DifferenceRecord>(any())).thenReturn(Mono.just(DifferenceRecord()))
@@ -167,7 +169,7 @@ class DifferenceServiceImplTest {
         whenever(repository.findById(eq(testId))).thenReturn(Mono.empty())
         whenever(repository.save<DifferenceRecord>(any())).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putLeft(testId, Base64.getEncoder().encodeToString(leftContent)))
+                .create(diffService.putLeft(testId, Mono.just(Base64.getEncoder().encodeToString(leftContent))))
                 .expectNextMatches { Objects.nonNull(it) }
                 .expectComplete()
                 .verify()
@@ -190,7 +192,7 @@ class DifferenceServiceImplTest {
         whenever(repository.findById(eq(testId))).thenReturn(Mono.empty())
         whenever(repository.save<DifferenceRecord>(any())).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putRight(testId, Base64.getEncoder().encodeToString(rightContent)))
+                .create(diffService.putRight(testId, Mono.just(Base64.getEncoder().encodeToString(rightContent))))
                 .expectNextMatches { Objects.nonNull(it) }
                 .expectComplete()
                 .verify()
@@ -217,7 +219,7 @@ class DifferenceServiceImplTest {
         whenever(repository.findById(eq(testId))).thenReturn(Mono.just(differenceRecord))
         whenever(repository.save<DifferenceRecord>(any())).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putLeft(testId, Base64.getEncoder().encodeToString(leftContent)))
+                .create(diffService.putLeft(testId, Mono.just(Base64.getEncoder().encodeToString(leftContent))))
                 .expectNextMatches { Objects.nonNull(it) }
                 .expectComplete()
                 .verify()
@@ -243,7 +245,7 @@ class DifferenceServiceImplTest {
         whenever(repository.findById(eq(testId))).thenReturn(Mono.just(differenceRecord))
         whenever(repository.save<DifferenceRecord>(any())).thenReturn(Mono.just(DifferenceRecord()))
         StepVerifier
-                .create(diffService.putRight(testId, Base64.getEncoder().encodeToString(rightContent)))
+                .create(diffService.putRight(testId, Mono.just(Base64.getEncoder().encodeToString(rightContent))))
                 .expectNextMatches { Objects.nonNull(it) }
                 .expectComplete()
                 .verify()
@@ -268,7 +270,7 @@ class DifferenceServiceImplTest {
         //when
         whenever(repository.findById(eq(testId))).thenReturn(Mono.just(differenceRecord))
         StepVerifier
-                .create(diffService.putRight(testId, Base64.getEncoder().encodeToString(rightContent)))
+                .create(diffService.putRight(testId, Mono.just(Base64.getEncoder().encodeToString(rightContent))))
                 .expectNextMatches { x -> x == differenceRecord }
                 .expectComplete()
                 .verify()
@@ -288,7 +290,7 @@ class DifferenceServiceImplTest {
         //when
         whenever(repository.findById(eq(testId))).thenReturn(Mono.just(differenceRecord))
         StepVerifier
-                .create(diffService.putLeft(testId, Base64.getEncoder().encodeToString(leftContent)))
+                .create(diffService.putLeft(testId, Mono.just(Base64.getEncoder().encodeToString(leftContent))))
                 .expectNextMatches { x -> x == differenceRecord }
                 .expectComplete()
                 .verify()

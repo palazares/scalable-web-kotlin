@@ -7,9 +7,14 @@ import com.waes.palazares.scalablewebkotlin.exceptions.InavlidIdException
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidBase64Exception
 import com.waes.palazares.scalablewebkotlin.exceptions.InvalidRecordContentException
 import org.slf4j.Logger
+import org.springframework.data.repository.reactive.ReactiveCrudRepository
+import org.springframework.stereotype.Repository
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.util.*
+
+@Repository
+interface DifferenceRepository : ReactiveCrudRepository<DifferenceRecord, String>
 
 /**
  * `DifferenceService` interface defines methods to store left and right documents and for getting difference between them
@@ -22,7 +27,7 @@ interface DifferenceService {
      * @param [doc] base64 encoded document
      * @return persisted difference record
      */
-    fun putRight(id: String, doc: String): Mono<DifferenceRecord>
+    fun putRight(id: String, doc: Mono<String>): Mono<DifferenceRecord>
 
     /**
      * Puts document as a left side of the difference into the repository. Document contents are decoded
@@ -31,7 +36,7 @@ interface DifferenceService {
      * @param [doc] base64 encoded document
      * @return persisted difference record
      */
-    fun putLeft(id: String, doc: String): Mono<DifferenceRecord>
+    fun putLeft(id: String, doc: Mono<String>): Mono<DifferenceRecord>
 
     /**
      * Gets the difference between left and right documents
@@ -46,11 +51,11 @@ interface DifferenceService {
 class DifferenceServiceImpl(private val repository: DifferenceRepository) : DifferenceService, Logging {
     private val log: Logger = logger()
 
-    override fun putRight(id: String, doc: String): Mono<DifferenceRecord> {
+    override fun putRight(id: String, doc: Mono<String>): Mono<DifferenceRecord> {
         return putRecord(id, doc, false)
     }
 
-    override fun putLeft(id: String, doc: String): Mono<DifferenceRecord> {
+    override fun putLeft(id: String, doc: Mono<String>): Mono<DifferenceRecord> {
         return putRecord(id, doc, true)
     }
 
@@ -84,17 +89,12 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
      * @param [isLeft] document side
      * @return persisted difference record
      */
-    private fun putRecord(id: String?, doc: String?, isLeft: Boolean): Mono<DifferenceRecord> {
+    private fun putRecord(id: String?, doc: Mono<String>, isLeft: Boolean): Mono<DifferenceRecord> {
         log.debug("Put record request with id: $id")
 
         if (id == null || id.trim { it <= ' ' }.isEmpty()) {
             log.debug("Record request has empty id")
             return Mono.error(InavlidIdException())
-        }
-
-        if (doc == null || doc.trim { it <= ' ' }.isEmpty()) {
-            log.debug("Record request with id: $id has empty content")
-            return Mono.error(InvalidBase64Exception())
         }
 
         val decodedDoc = decode(doc)
@@ -109,9 +109,11 @@ class DifferenceServiceImpl(private val repository: DifferenceRepository) : Diff
                 .flatMap { repository.save(it) })
     }
 
-    private fun decode(doc: String): Mono<ByteArray> =
-            Mono.just(doc)
-                    .map { Base64.getDecoder().decode(it) }
+    private fun decode(doc: Mono<String>): Mono<ByteArray> =
+            doc.map {
+                require(it.isNotBlank())
+                Base64.getDecoder().decode(it)
+            }
                     .doOnError { log.debug("Not valid base64 string: $doc", it) }
                     .onErrorMap { InvalidBase64Exception() }
 
